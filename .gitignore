@@ -18,3 +18,8 @@
 /STMTestNucleo32L011/MDK-ARM/TestThermometer.uvguix.maticpi
 /STMTestNucleo32L011/MDK-ARM/startup_stm32l011xx.lst
 /STMTestNucleo32L011/TestThermometer.lnk
+/FW_SensorHub/Debug
+/FW_SensorHub/HTerm.exe.lnk
+/FW_SensorHub/avrdudess.lnk
+/FW_SensorHub/ATmega328PB.pdf
+/FW_SensorHub/.vs/FW_SensorHub/v14/.atsuo
