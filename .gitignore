@@ -6,3 +6,15 @@
 /PCB_ThermometerATt160x/Project Logs for PCB_Thermometer
 /PCB_ThermometerATt160x/TinaSim
 /PCB_ThermometerATt160x/__Previews
+/FW_ThermometerSTM/MDK-ARM/DebugConfig
+/FW_ThermometerSTM/MDK-ARM/FW_Thermometer
+/FW_ThermometerSTM/MDK-ARM/RTE
+/FW_ThermometerSTM/MDK-ARM/FW_Thermometer.uvguix.maticpi
+/FW_ThermometerSTM/MDK-ARM/startup_stm32l011xx.lst
+/STMTestNucleo32L011/MDK-ARM/DebugConfig
+/STMTestNucleo32L011/MDK-ARM/TestThermometer
+/STMTestNucleo32L011/MDK-ARM/EventRecorderStub.scvd
+/STMTestNucleo32L011/MDK-ARM/RTE/_TestThermometer
+/STMTestNucleo32L011/MDK-ARM/TestThermometer.uvguix.maticpi
+/STMTestNucleo32L011/MDK-ARM/startup_stm32l011xx.lst
+/STMTestNucleo32L011/TestThermometer.lnk
