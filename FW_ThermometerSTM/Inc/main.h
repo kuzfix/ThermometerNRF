@@ -73,6 +73,17 @@ void Error_Handler(void);
 #define VCC_SHT_Pin GPIO_PIN_1
 #define VCC_SHT_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
+//SENSOR ID: 
+//	bits 7..2: id
+//  bits 1..0: type
+#define SENS_ID	0x01
+
+#define STYPE_T	0x01
+#define STYPE_H	0x02
+#define STYPE_P	0x03
+
+#define SENSOR_ID(type)	(SENS_ID<<2 | (0x03 & type) )
+
 
 /* USER CODE END Private defines */
 

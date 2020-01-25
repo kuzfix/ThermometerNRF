@@ -68,6 +68,182 @@ static void MX_SPI1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+#define SHT21_ADDRESS 0x80  //I2C address for the sensor
+#define TRIGGER_TEMP_MEASURE_NOHOLD  0xF3
+#define TRIGGER_HUMD_MEASURE_NOHOLD  0xF5
+
+int16_t GetSHT21measurement(uint8_t command)
+{
+	uint8_t i2cmsg[3], crc;
+	uint32_t	t1;
+	int16_t result;
+	static int transmission_counter;
+	HAL_StatusTypeDef	i2cStatus = HAL_ERROR;
+
+	//Measure
+	i2cmsg[0]=command;
+	i2cStatus = HAL_I2C_Master_Transmit(&hi2c1, SHT21_ADDRESS, i2cmsg, 1, 10);
+	//Temperature conversion takes up to 85ms, while humidity 29ms.
+	t1 = HAL_GetTick();
+	transmission_counter=0;
+	i2cStatus = HAL_ERROR;
+	while (i2cStatus != HAL_OK)
+	{
+		HAL_Delay(5);
+		i2cStatus = HAL_I2C_Master_Receive(&hi2c1, SHT21_ADDRESS, i2cmsg, 3, 10);
+		if (i2cStatus == HAL_OK)
+		{
+			transmission_counter++;
+			MX_CRC_Init();
+			crc = HAL_CRC_Calculate (&hcrc, (uint32_t*)i2cmsg, 2);
+			HAL_CRC_DeInit(&hcrc);
+			if (crc == i2cmsg[2])	// if crc OK, continue, else repeat transmission
+			{
+				break;
+			}
+			else
+			{
+				i2cStatus = HAL_ERROR;
+			}
+		}
+		if (HAL_GetTick()-t1>150) break;
+	}
+	result=((int)i2cmsg[0]<<8) | (i2cmsg[1] & (~0x03));
+	
+	if (i2cStatus != HAL_OK) result = 0xFFFF;
+	
+	return result;
+}
+
+uint16_t i16Temp, i16Hum;
+void ReadSHT21(void)
+{
+	//Turn on power supply for the SHT11 sensor
+	HAL_GPIO_WritePin(VCC_SHT_GPIO_Port,VCC_SHT_Pin,GPIO_PIN_SET);
+  MX_I2C1_Init();
+	HAL_Delay(20);	//Startup takes a minimum of 15ms
+
+	i16Temp = GetSHT21measurement(TRIGGER_TEMP_MEASURE_NOHOLD);
+	i16Hum = GetSHT21measurement(TRIGGER_HUMD_MEASURE_NOHOLD);
+	//Measure humidity
+
+	//Turn off I2C and SHT power
+	HAL_I2C_DeInit(&hi2c1);
+	//HAL_GPIO_WritePin(VCC_SHT_GPIO_Port,VCC_SHT_Pin,GPIO_PIN_RESET);
+	HAL_GPIO_DeInit(VCC_SHT_GPIO_Port, VCC_SHT_Pin);	//Should go into Analog input mode
+}
+
+uint8_t Vdd;
+void MeasureVDD(void)
+{
+	Vdd=19;
+	
+	PWR_PVDTypeDef	PVDcfg;
+	PVDcfg.Mode=PWR_PVD_MODE_NORMAL;	//No event, no interrupt?
+	PVDcfg.PVDLevel=PWR_PVDLEVEL_0;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+	
+	HAL_PWR_ConfigPVD(&PVDcfg);
+	HAL_PWR_EnablePVD();
+	
+	if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+	{
+		PVDcfg.PVDLevel=PWR_PVDLEVEL_1;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+		HAL_PWR_ConfigPVD(&PVDcfg);
+		Vdd+=2;
+		if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+		{
+			PVDcfg.PVDLevel=PWR_PVDLEVEL_2;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+			HAL_PWR_ConfigPVD(&PVDcfg);
+			Vdd+=2;
+			if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+			{
+				PVDcfg.PVDLevel=PWR_PVDLEVEL_3;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+				HAL_PWR_ConfigPVD(&PVDcfg);
+				Vdd+=2;
+				if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+				{
+					PVDcfg.PVDLevel=PWR_PVDLEVEL_4;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+					HAL_PWR_ConfigPVD(&PVDcfg);
+					Vdd+=2;
+					if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+					{
+						PVDcfg.PVDLevel=PWR_PVDLEVEL_5;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+						HAL_PWR_ConfigPVD(&PVDcfg);
+						Vdd+=2;
+						if (!__HAL_PWR_GET_FLAG(PWR_FLAG_PVDO) )
+						{
+							PVDcfg.PVDLevel=PWR_PVDLEVEL_6;	//0=1.9V, 1=2.1V, 2=2.3V, ... 6=3.1V, 7=ext
+							HAL_PWR_ConfigPVD(&PVDcfg);
+							Vdd+=2;
+						}
+					}
+				}
+			}
+		}
+	}
+	HAL_PWR_DisablePVD();
+}
+
+uint8_t TransmitPacket(uint8_t ID, uint16_t data, uint8_t rtrCount)
+{
+	uint8_t transmissionStatus;
+	uint8_t data_array[5];
+	uint32_t t1;
+	
+	data_array[0] = ID;
+	data_array[1] = data>>8;
+	data_array[2] = data;
+	data_array[3] = Vdd;                                    
+	data_array[4] = rtrCount;                                    
+
+	nrf24_send(data_array);        
+	t1 = HAL_GetTick();
+	while(nrf24_isSending())
+	{
+		if ( (HAL_GetTick()-t1) > 200 ) break;	//Needed if NRF disconnected 
+	}		
+	transmissionStatus = nrf24_lastMessageStatus();
+	rtrCount = nrf24_retransmissionCount();
+
+	if(transmissionStatus == NRF24_TRANSMISSON_OK)
+	{
+		//All OK. Nothing to do.
+	}
+	else if(transmissionStatus == NRF24_MESSAGE_LOST)
+	{                    
+		//TODO: Is there anything I can do in case of error
+	}
+	else
+	{
+		//TODO: check if there can be any other kind of status
+	}
+			
+	return rtrCount;
+}
+
+void TransmitData(void)
+{
+	static uint8_t retransmissionCount=0;	//always send retransmission count of the previous transmission
+	uint8_t tx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
+	uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
+
+	MX_SPI1_Init();
+
+	nrf24_init();
+	nrf24_config(2,4); 	// Channel #2 , payload length: 4 
+	nrf24_tx_address(tx_address);// Set the device addresses
+	nrf24_rx_address(rx_address);    
+
+	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_T), i16Temp, retransmissionCount);
+	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_H), i16Hum, retransmissionCount);
+	
+	HAL_SPI_DeInit(&hspi1);
+	HAL_GPIO_DeInit(CE_GPIO_Port, CE_Pin);	//Should go into Analog input mode
+	HAL_GPIO_DeInit(nCS_GPIO_Port, nCS_Pin);	//Should go into Analog input mode
+	HAL_GPIO_DeInit(IRQ_GPIO_Port, IRQ_Pin);	//Should go into Analog input mode
+
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -77,11 +253,7 @@ static void MX_SPI1_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-uint8_t temp;
-uint8_t q = 0;
-uint8_t data_array[4];
-uint8_t tx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
-uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
+
   /* USER CODE END 1 */
   
 
@@ -99,6 +271,7 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 
   /* USER CODE BEGIN SysInit */
 
+	#if 0		//Disable standard startup - turn on each thing when needed, then off again
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -108,115 +281,44 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
   MX_RTC_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-
-	/* init hardware pins */
-	nrf24_init();
 	
-	/* Channel #2 , payload length: 4 */
-	nrf24_config(2,4);
+	#endif
+  
+	HAL_GPIO_DeInit(PMODE_GPIO_Port, PMODE_Pin);	//Should go into Analog input mode
+	HAL_GPIO_DeInit(VCC_DS_GPIO_Port, VCC_DS_Pin);	//Should go into Analog input mode
+	HAL_GPIO_DeInit(DS_DATA_GPIO_Port, DS_DATA_Pin);	//Should go into Analog input mode
 
-	/* Set the device addresses */
-	nrf24_tx_address(tx_address);
-	nrf24_rx_address(rx_address);    
+	MX_RTC_Init();
+	HAL_PWREx_EnableUltraLowPower(); // Ultra low power mode
+	HAL_PWREx_EnableFastWakeUp(); // Fast wake-up for ultra low power mode
+	__HAL_RTC_WAKEUPTIMER_EXTI_DISABLE_IT();
+	__HAL_RTC_WAKEUPTIMER_EXTI_ENABLE_EVENT();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	static uint8_t i2cmsg[10];
-	static volatile int i16Temp, i16hum;
-#define SHT21_ADDRESS 0x80  //I2C address for the sensor
-  
-#define TRIGGER_TEMP_MEASURE_NOHOLD  0xF3
-#define TRIGGER_HUMD_MEASURE_NOHOLD  0xF5
-	static uint32_t	t1,t2,dt;
-	static float fTemp, fhum;
-	static HAL_StatusTypeDef	i2cStatus = HAL_ERROR;
+//static float fTemp,fhum;
   while (1)
   {
-		//Turn on power supply for the SHT11 sensor
-		HAL_GPIO_WritePin(VCC_SHT_GPIO_Port,VCC_SHT_Pin,GPIO_PIN_SET);
-		HAL_Delay(20);	//Startup takes a minimum of 15ms
-    //Measure temperature
-		i2cmsg[0]=TRIGGER_TEMP_MEASURE_NOHOLD;
-		i2cStatus = HAL_I2C_Master_Transmit(&hi2c1, SHT21_ADDRESS, i2cmsg, 1, 10);
-		//Temperature conversion takes up to 85ms
-		t1 = HAL_GetTick();
-		i2cStatus = HAL_ERROR;
-		while (i2cStatus != HAL_OK)
-		{
-			HAL_Delay(5);
-			i2cStatus = HAL_I2C_Master_Receive(&hi2c1, SHT21_ADDRESS, i2cmsg, 3, 10);
-			if (HAL_GetTick()-t1>100) break;
-		}
-    i16Temp=((int)i2cmsg[0]<<8) | (i2cmsg[1] & (~0x03));
-		//Measure humidity
-    i2cmsg[0]=TRIGGER_HUMD_MEASURE_NOHOLD;
-		i2cStatus = HAL_I2C_Master_Transmit(&hi2c1, SHT21_ADDRESS, i2cmsg, 1, 10);
-		//Humidity conversion takes up to 29ms
-		t1 = HAL_GetTick();
-		i2cStatus = HAL_ERROR;
-		while (i2cStatus != HAL_OK)
-		{
-			HAL_Delay(5);
-			i2cStatus = HAL_I2C_Master_Receive(&hi2c1, SHT21_ADDRESS, i2cmsg, 3, 10);
-			if (HAL_GetTick()-t1>100) break;
-		}
-    i16hum=((int)i2cmsg[0]<<8) | (i2cmsg[1] & (~0x03));
-
-		fTemp = -46.85 + 175.72 / 65536.0 * i16Temp;
-		fhum = -6.0 + 125.0 / 65536.0 * i16hum;
-    
-		data_array[0] = 0x00;
-		data_array[1] = 0xAA;
-		data_array[2] = 0x55;
-		data_array[3] = q++;                                    
-
-		/* Automatically goes to TX mode */
-		nrf24_send(data_array);        
-		
-		/* Wait for transmission to end */
-		while(nrf24_isSending());	//add timeout so id doesnt use up the battery if transmission keeps failing
-
-		/* Make analysis on last tranmission attempt */
-		temp = nrf24_lastMessageStatus();
-
-		if(temp == NRF24_TRANSMISSON_OK)
-		{                    
-		}
-		else if(temp == NRF24_MESSAGE_LOST)
-		{                    
-		}
-        
-		/* Retranmission count indicates the tranmission quality */
-		temp = nrf24_retransmissionCount();
-
-		/* Optionally, go back to RX mode ... */
-		nrf24_powerUpRx();
-
-		/* Or you might want to power down after TX */
-		// nrf24_powerDown();            
-
-		/* Wait a little ... */
-		//HAL_Delay(10);
-
-		HAL_PWREx_EnableUltraLowPower(); // Ultra low power mode
-		HAL_PWREx_EnableFastWakeUp(); // Fast wake-up for ultra low power mode
-		//_stm32l_disableGpios(); // Disable GPIOs based on configuration - y custom function -TODO
-
-		//HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
-		//Sleeping...
-		SystemClock_Config();
-//		HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);	//Why? makes no sense.
-
 		MX_GPIO_Init();
-		MX_CRC_Init();
-		MX_I2C1_Init();
-		//MX_RTC_Init();
-		MX_SPI1_Init();
+		ReadSHT21();
+		MeasureVDD();
+//		fTemp = -46.85 + 175.72 / 65536.0 * i16Temp;
+//		fhum = -6.0 + 125.0 / 65536.0 * i16Hum;
+		TransmitData();
+
+		HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
+		//Sleeping...
+		//Sleeping...
+		//Sleeping...
+	   __HAL_RTC_WAKEUPTIMER_CLEAR_FLAG(&hrtc, RTC_FLAG_WUTF);
+		SystemClock_Config();
+//	MX_RTC_Init();	//Test if this is really needed
+		
     /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -284,8 +386,11 @@ static void MX_CRC_Init(void)
 
   /* USER CODE END CRC_Init 1 */
   hcrc.Instance = CRC;
-  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
-  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_DISABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_DISABLE;
+  hcrc.Init.GeneratingPolynomial = 49;
+  hcrc.Init.CRCLength = CRC_POLYLENGTH_8B;
+  hcrc.Init.InitValue = 0x0;
   hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
   hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
   hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_BYTES;
@@ -376,7 +481,7 @@ static void MX_RTC_Init(void)
   }
   /** Enable the WakeUp 
   */
-  if (HAL_RTCEx_SetWakeUpTimer(&hrtc, 600, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
+  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 10, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
   {
     Error_Handler();
   }
@@ -434,9 +539,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(PMODE_GPIO_Port, PMODE_Pin, GPIO_PIN_RESET);
@@ -446,6 +551,12 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(VCC_SHT_GPIO_Port, VCC_SHT_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC14 */
   GPIO_InitStruct.Pin = GPIO_PIN_14;

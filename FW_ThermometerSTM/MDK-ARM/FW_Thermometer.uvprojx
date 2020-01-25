@@ -338,7 +338,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32L011xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Inc;../Drivers/STM32L0xx_HAL_Driver/Inc;../Drivers/STM32L0xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32L0xx/Include;../Drivers/CMSIS/Include;..\..\..\nrf24L01_plus</IncludePath>
+              <IncludePath>../Inc;      ../Drivers/STM32L0xx_HAL_Driver/Inc;      ../Drivers/STM32L0xx_HAL_Driver/Inc/Legacy;      ../Drivers/CMSIS/Device/ST/STM32L0xx/Include;      ../Drivers/CMSIS/Include;      ..\..\..\nrf24L01_plus</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -403,6 +403,11 @@
           <GroupName>Application/User</GroupName>
           <Files>
             <File>
+              <FileName>radioPinFunctions.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\radioPinFunctions.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Src/main.c</FilePath>
@@ -416,11 +421,6 @@
               <FileName>stm32l0xx_hal_msp.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Src/stm32l0xx_hal_msp.c</FilePath>
-            </File>
-            <File>
-              <FileName>radioPinFunctions.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\radioPinFunctions.c</FilePath>
             </File>
           </Files>
         </Group>
