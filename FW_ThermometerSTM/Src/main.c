@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "nrf24.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -122,9 +123,50 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	static uint8_t i2cmsg[10];
+	static volatile int i16Temp, i16hum;
+#define SHT21_ADDRESS 0x80  //I2C address for the sensor
+  
+#define TRIGGER_TEMP_MEASURE_NOHOLD  0xF3
+#define TRIGGER_HUMD_MEASURE_NOHOLD  0xF5
+	static uint32_t	t1,t2,dt;
+	static float fTemp, fhum;
+	static HAL_StatusTypeDef	i2cStatus = HAL_ERROR;
   while (1)
   {
-    /* USER CODE END WHILE */
+		//Turn on power supply for the SHT11 sensor
+		HAL_GPIO_WritePin(VCC_SHT_GPIO_Port,VCC_SHT_Pin,GPIO_PIN_SET);
+		HAL_Delay(20);	//Startup takes a minimum of 15ms
+    //Measure temperature
+		i2cmsg[0]=TRIGGER_TEMP_MEASURE_NOHOLD;
+		i2cStatus = HAL_I2C_Master_Transmit(&hi2c1, SHT21_ADDRESS, i2cmsg, 1, 10);
+		//Temperature conversion takes up to 85ms
+		t1 = HAL_GetTick();
+		i2cStatus = HAL_ERROR;
+		while (i2cStatus != HAL_OK)
+		{
+			HAL_Delay(5);
+			i2cStatus = HAL_I2C_Master_Receive(&hi2c1, SHT21_ADDRESS, i2cmsg, 3, 10);
+			if (HAL_GetTick()-t1>100) break;
+		}
+    i16Temp=((int)i2cmsg[0]<<8) | (i2cmsg[1] & (~0x03));
+		//Measure humidity
+    i2cmsg[0]=TRIGGER_HUMD_MEASURE_NOHOLD;
+		i2cStatus = HAL_I2C_Master_Transmit(&hi2c1, SHT21_ADDRESS, i2cmsg, 1, 10);
+		//Humidity conversion takes up to 29ms
+		t1 = HAL_GetTick();
+		i2cStatus = HAL_ERROR;
+		while (i2cStatus != HAL_OK)
+		{
+			HAL_Delay(5);
+			i2cStatus = HAL_I2C_Master_Receive(&hi2c1, SHT21_ADDRESS, i2cmsg, 3, 10);
+			if (HAL_GetTick()-t1>100) break;
+		}
+    i16hum=((int)i2cmsg[0]<<8) | (i2cmsg[1] & (~0x03));
+
+		fTemp = -46.85 + 175.72 / 65536.0 * i16Temp;
+		fhum = -6.0 + 125.0 / 65536.0 * i16hum;
+    
 		data_array[0] = 0x00;
 		data_array[1] = 0xAA;
 		data_array[2] = 0x55;
@@ -134,7 +176,7 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 		nrf24_send(data_array);        
 		
 		/* Wait for transmission to end */
-		while(nrf24_isSending());
+		while(nrf24_isSending());	//add timeout so id doesnt use up the battery if transmission keeps failing
 
 		/* Make analysis on last tranmission attempt */
 		temp = nrf24_lastMessageStatus();
@@ -162,7 +204,7 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 		HAL_PWREx_EnableFastWakeUp(); // Fast wake-up for ultra low power mode
 		//_stm32l_disableGpios(); // Disable GPIOs based on configuration - y custom function -TODO
 
-		HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
+		//HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
 		//Sleeping...
 		SystemClock_Config();
 //		HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);	//Why? makes no sense.
@@ -172,7 +214,9 @@ uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 		MX_I2C1_Init();
 		//MX_RTC_Init();
 		MX_SPI1_Init();
-    /* USER CODE BEGIN 3 */
+    /* USER CODE END WHILE */
+
+		/* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
