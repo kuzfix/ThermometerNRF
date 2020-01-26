@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "nrf24.h"
 #include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -184,6 +185,9 @@ void MeasureVDD(void)
 	HAL_PWR_DisablePVD();
 }
 
+uint8_t tx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
+uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
+
 uint8_t TransmitPacket(uint8_t ID, uint16_t data, uint8_t rtrCount)
 {
 	uint8_t transmissionStatus;
@@ -211,7 +215,23 @@ uint8_t TransmitPacket(uint8_t ID, uint16_t data, uint8_t rtrCount)
 	}
 	else if(transmissionStatus == NRF24_MESSAGE_LOST)
 	{                    
-		//TODO: Is there anything I can do in case of error
+		//In case of error wait 100 to 200 ms and try again. 
+		//If it fails again, the packet will be permanently lost.
+		HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_RESET);
+		srand(HAL_GetTick());
+		HAL_Delay((rand() % 100) + 100); //randomize
+		HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_SET);
+		nrf24_init();
+		nrf24_config(2,4); 	// Channel #2 , payload length: 4 
+		nrf24_tx_address(tx_address);// Set the device addresses
+		nrf24_rx_address(rx_address);    
+		nrf24_send(data_array);        
+		t1 = HAL_GetTick();
+		while(nrf24_isSending())
+		{
+			if ( (HAL_GetTick()-t1) > 200 ) break;	//Needed if NRF disconnected 
+		}		
+		rtrCount = nrf24_retransmissionCount()+15;
 	}
 	else
 	{
@@ -224,9 +244,8 @@ uint8_t TransmitPacket(uint8_t ID, uint16_t data, uint8_t rtrCount)
 void TransmitData(void)
 {
 	static uint8_t retransmissionCount=0;	//always send retransmission count of the previous transmission
-	uint8_t tx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
-	uint8_t rx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
 
+	HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_SET);
 	MX_SPI1_Init();
 
 	nrf24_init();
@@ -237,11 +256,21 @@ void TransmitData(void)
 	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_T), i16Temp, retransmissionCount);
 	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_H), i16Hum, retransmissionCount);
 	
+	HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_RESET);
 	HAL_SPI_DeInit(&hspi1);
 	HAL_GPIO_DeInit(CE_GPIO_Port, CE_Pin);	//Should go into Analog input mode
 	HAL_GPIO_DeInit(nCS_GPIO_Port, nCS_Pin);	//Should go into Analog input mode
 	HAL_GPIO_DeInit(IRQ_GPIO_Port, IRQ_Pin);	//Should go into Analog input mode
 
+}
+
+void Sleep(void)
+{
+		HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
+		//Sleeping...
+	   __HAL_RTC_WAKEUPTIMER_CLEAR_FLAG(&hrtc, RTC_FLAG_WUTF);
+		SystemClock_Config();
+//	MX_RTC_Init();	//Test if this is really needed
 }
 
 /* USER CODE END 0 */
@@ -298,24 +327,14 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-//static float fTemp,fhum;
   while (1)
   {
 		MX_GPIO_Init();
 		ReadSHT21();
-		MeasureVDD();
-//		fTemp = -46.85 + 175.72 / 65536.0 * i16Temp;
-//		fhum = -6.0 + 125.0 / 65536.0 * i16Hum;
+		MeasureVDD();		//TODO: Test. I dont think it is actually working.
 		TransmitData();
-
-		HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFE);
-		//Sleeping...
-		//Sleeping...
-		//Sleeping...
-	   __HAL_RTC_WAKEUPTIMER_CLEAR_FLAG(&hrtc, RTC_FLAG_WUTF);
-		SystemClock_Config();
-//	MX_RTC_Init();	//Test if this is really needed
-		
+//		Sleep();
+		HAL_Delay(1000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -481,7 +500,7 @@ static void MX_RTC_Init(void)
   }
   /** Enable the WakeUp 
   */
-  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 10, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
+  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 3, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
   {
     Error_Handler();
   }

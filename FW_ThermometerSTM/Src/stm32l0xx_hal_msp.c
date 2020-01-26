@@ -66,11 +66,21 @@ void HAL_MspInit(void)
   /* USER CODE BEGIN MspInit 0 */
 
   /* USER CODE END MspInit 0 */
+  PWR_PVDTypeDef sConfigPVD = {0};
 
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_RCC_PWR_CLK_ENABLE();
 
   /* System interrupt init*/
+
+  /** PVD Configuration 
+  */
+  sConfigPVD.PVDLevel = PWR_PVDLEVEL_2;
+  sConfigPVD.Mode = PWR_PVD_MODE_NORMAL;
+  HAL_PWR_ConfigPVD(&sConfigPVD);
+  /** Enable the PVD Output 
+  */
+  HAL_PWR_EnablePVD();
 
   /* USER CODE BEGIN MspInit 1 */
 
@@ -201,6 +211,9 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
   /* USER CODE END RTC_MspInit 0 */
     /* Peripheral clock enable */
     __HAL_RCC_RTC_ENABLE();
+    /* RTC interrupt Init */
+    HAL_NVIC_SetPriority(RTC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(RTC_IRQn);
   /* USER CODE BEGIN RTC_MspInit 1 */
 
   /* USER CODE END RTC_MspInit 1 */
@@ -223,6 +236,9 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc)
   /* USER CODE END RTC_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_RTC_DISABLE();
+
+    /* RTC interrupt DeInit */
+    HAL_NVIC_DisableIRQ(RTC_IRQn);
   /* USER CODE BEGIN RTC_MspDeInit 1 */
 
   /* USER CODE END RTC_MspDeInit 1 */
