@@ -253,8 +253,8 @@ void TransmitData(void)
 	nrf24_tx_address(tx_address);// Set the device addresses
 	nrf24_rx_address(rx_address);    
 
-	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_T), i16Temp, retransmissionCount);
-	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_H), i16Hum, retransmissionCount);
+	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_Tsht21), i16Temp, retransmissionCount);
+	retransmissionCount = TransmitPacket(SENSOR_ID(STYPE_Hsht21), i16Hum, retransmissionCount);
 	
 	HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_RESET);
 	HAL_SPI_DeInit(&hspi1);
