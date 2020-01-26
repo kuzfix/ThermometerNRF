@@ -14,6 +14,13 @@
 #include "nrf24.h"
 #include "kbd.h"
 
+#include "XPT2046.h"
+#include "LCD_Ili9341.h"
+#include "onewire.h"
+#include "ds18x20.h"
+#include "crc8.h"
+/#include "MAX6675.h"
+
 #define DEFAULT_AWAKE_TIME (10*60*1000UL)  //10 min
 
 void InitIO()
@@ -29,23 +36,30 @@ void InitIO()
   DDRB=0x2F;
 }
 
-	uint8_t tx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
-	uint8_t rx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
-
+uint8_t tx_address[5] = {0xD7,0xD7,0xD7,0xD7,0xD7};
+uint8_t rx_address[5] = {0xE7,0xE7,0xE7,0xE7,0xE7};
 
 /* PROTOCOL
-Wake - wake up the receiver - no action if already awake
-Fxx! - Forward with speed xx: ASCII 0(stop)-99(max speed)
-Bxx! - Backwards with speed xx (same format as F)
-Txx! - Time to auto stop (xx seconds).
-txx! - Time to auto stop if command receifed frome remote controller
-sxxx - Time to auto stop if command slow receifed frome remote controller(xx.x seconds)
+ID valH valL Vdd rtr
+ID: 7..3 = ID, 2..0 = sensor type
+valH - raw value HIGH byte.
+valL - raw value LOW byte.
+Vdd - power supply voltage
+rtr - number of retransmissions of the previous packet (indicates ink quality, lower is better)
 */
+#define STYPE_Tds18b20		0x01
+#define STYPE_Tsht21			0x02
+#define STYPE_Hsht21			0x03
+#define STYPE_Tbmp280			0x05
+#define STYPE_Pbmp280			0x06
+
 void DecodeCommand(uint8_t *pu8_cmd)
 {
-  switch (pu8_cmd[0])
+  uint8_t ID = pu8_cmd[0]>>3;
+  float sensor_val; 
+  switch (pu8_cmd[0] & 0x07)
   {
-    case 'T': 
+    case STYPE_Tds18b20: 
       printf(" T=%d.%02dC (%3d)", pu8_cmd[1], (pu8_cmd[2]*100)/256, pu8_cmd[3] ); 
       break;
     default: 

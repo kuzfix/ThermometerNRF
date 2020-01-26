@@ -167,10 +167,19 @@
     <Compile Include="config.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="crc8.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="ds18x20.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="kbd.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="kbd.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="LCD_Ili9341.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="main.c">
@@ -179,10 +188,19 @@
     <Compile Include="NRF24L01_lib\radioPinFunctions.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="onewire.c">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="systime.c">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="UART0_IRQ.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="ugui.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="XPT2046.c">
       <SubType>compile</SubType>
     </Compile>
   </ItemGroup>
