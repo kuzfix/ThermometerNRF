@@ -23,3 +23,9 @@
 /FW_SensorHub/avrdudess.lnk
 /FW_SensorHub/ATmega328PB.pdf
 /FW_SensorHub/.vs/FW_SensorHub/v14/.atsuo
+/FW_ThermometerATt2313/Debug
+/FW_ThermometerSTM/FW_Thermometer.lnk
+/FW_ThermometerSTM/HAL_L0.pdf
+/FW_ThermometerSTM/Inc/Backup
+/FW_ThermometerSTM/MDK-ARM/*.bak
+/FW_ThermometerSTM/Src/Backup/*.bak

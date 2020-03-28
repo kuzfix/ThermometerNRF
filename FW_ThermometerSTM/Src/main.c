@@ -222,7 +222,7 @@ uint8_t TransmitPacket(uint8_t ID, uint16_t data, uint8_t rtrCount)
 		HAL_Delay((rand() % 100) + 100); //randomize
 		HAL_GPIO_WritePin(VCC_DS_GPIO_Port,VCC_DS_Pin|DS_DATA_Pin,GPIO_PIN_SET);
 		nrf24_init();
-		nrf24_config(2,4); 	// Channel #2 , payload length: 4 
+		nrf24_config(2,5); 	// Channel #2 , payload length: 4 
 		nrf24_tx_address(tx_address);// Set the device addresses
 		nrf24_rx_address(rx_address);    
 		nrf24_send(data_array);        
@@ -249,7 +249,7 @@ void TransmitData(void)
 	MX_SPI1_Init();
 
 	nrf24_init();
-	nrf24_config(2,4); 	// Channel #2 , payload length: 4 
+	nrf24_config(2,5); 	// Channel #2 , payload length: 4 
 	nrf24_tx_address(tx_address);// Set the device addresses
 	nrf24_rx_address(rx_address);    
 
@@ -333,8 +333,8 @@ int main(void)
 		ReadSHT21();
 		MeasureVDD();		//TODO: Test. I dont think it is actually working.
 		TransmitData();
-//		Sleep();
-		HAL_Delay(1000);
+		Sleep();
+//		HAL_Delay(5000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -500,7 +500,7 @@ static void MX_RTC_Init(void)
   }
   /** Enable the WakeUp 
   */
-  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 3, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
+  if (HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 600, RTC_WAKEUPCLOCK_CK_SPRE_16BITS) != HAL_OK)
   {
     Error_Handler();
   }

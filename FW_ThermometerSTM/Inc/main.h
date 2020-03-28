@@ -76,7 +76,7 @@ void Error_Handler(void);
 //SENSOR ID: 
 //	bits 7..3: id
 //  bits 2..0: type
-#define SENS_ID	0x01
+#define SENS_ID	0x03
 
 #define STYPE_Tds18b20		0x01
 #define STYPE_Tsht21			0x02
